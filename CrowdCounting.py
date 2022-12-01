@@ -5,7 +5,7 @@ import random
 import scipy.io as sio
 import sys
 
-from DenseLayer import Dense
+from ConvolutionalLayer import Convolutional
 from Activations import Tanh
 from Losses import mse, mse_prime
 from network import train, predict
@@ -18,7 +18,7 @@ datasetDir = 'C:\\Users/mason/OneDrive/Documents/UCF-QNRF_ECCV18'
 def load_resize_format_image(input):
     label = datasetDir + '/Train/' + input
     image = Image.open(label)
-    image = image.resize((450, 450))
+    image = image.resize((240, 240))
     numpydata = np.asarray(image) / 255
     return numpydata
 
@@ -88,9 +88,9 @@ for img in lst:
 
 # neural network
 network = [
-    Dense(300 * 300, 200*200),
+    Convolution(240 * 240, 175*175),
     Tanh(),
-    Dense(200*200, 15000),
+    Convolution(175*175, 15000),
     Tanh()
 ]
 
