@@ -4,17 +4,19 @@ import os
 import random
 import scipy.io as sio
 import sys
+import pickle
 
 from ConvolutionalLayer import Convolutional
 from Activations import Tanh
 from Losses import mse, mse_prime
 from network import train, predict
 
+loadFromMemory = False
 
 projDir = 'C:\\Users\mason\OneDrive\Documents\CNN Crowd Counting'
 datasetDir = 'C:\\Users/mason/OneDrive/Documents/UCF-QNRF_ECCV18'
 
-
+# Loading Methods
 def load_resize_format_image(input):
     label = datasetDir + '/Train/' + input
     image = Image.open(label)
@@ -31,6 +33,13 @@ def load_annotations_answer(input):
     answer[population] = 1
     return answer
 
+def save_matrix():
+    with open('layers.pkl', 'wb') as outp:
+        layer1 = network[0]
+        pickle.dump(layer1, outp, pickle.HIGHEST_PROTOCOL)
+    
+        layer2 = network[2]
+        pickle.dump(layer2, outp, pickle.HIGHEST_PROTOCOL)
 
 def getRandomTraining():
     i = random.randint(1, 1201)
@@ -47,10 +56,9 @@ def getRandomTraining():
     annotation = label + "_ann.mat"
     return (image, annotation)
 
-
 def getRandomizedTrainingDataset():
     lst = []
-    for i in range(1, 25): #1201
+    for i in range(1, 10): #1201
         label = 'img_'
         if (i < 10):
             label = label + "000" + str(i)
@@ -66,10 +74,43 @@ def getRandomizedTrainingDataset():
     random.shuffle(lst)
     return lst
 
+def getRandomTestImage():
+    i = random.randint(1, 334)
+    label = 'img_'
+    if (i < 10):
+        label = label + "000" + str(i)
+    elif (i < 100):
+        label = label + "00" + str(i)
+    elif (i < 1000):
+        label = label + "0" + str(i)
+    else:
+        label = label + str(i)
+    image = label + ".jpg"
+    annotation = label + "_ann.mat"
+    return (image, annotation)
+
+def getRandomizedTestingDataset():
+    lst = []
+    for i in range(1,334):
+        label = 'img_'
+        if (i < 10):
+            label = label + "000" + str(i)
+        elif (i < 100):
+            label = label + "00" + str(i)
+        elif (i < 1000):
+            label = label + "0" + str(i)
+        else:
+            label = label + str(i)
+        image = label + ".jpg"
+        annotation = label + "_ann.mat"
+        lst.append((image, annotation))
+    random.shuffle(lst)
+    return lst     
+
 
 # load Data
+print ('Shuffling Training List')
 lst = getRandomizedTrainingDataset()
-print('List done')
 x_train = []
 y_train = []
 i = 0
@@ -79,26 +120,46 @@ for img in lst:
     y_train.append(load_annotations_answer(img[1]))
     print('Loading img %d/%d' % (i, len(lst)))
 
-"""
-1 - Load the Image List for training and testing
-2 - Process the images into 450 by 450 numeric matrices
-3 - turn correct output into vectors
-4 - pass data into network and let the games begin
-"""
-
 # neural network
-network = [
-    Convolution(240 * 240, 175*175),
-    Tanh(),
-    Convolution(175*175, 15000),
-    Tanh()
-]
+network = []
+
+with open('layers.pkl', 'rb') as inp:
+    if loadFromMemory:
+        print('Loading from memory...')
+        layer1 = pickle.load(inp)
+        layer2 = pickle.load(inp)
+        
+        network = [
+            layer1,
+            Tanh(),
+            layer2,
+            Tanh()
+        ]
+    else:
+        print('Generating New Matricies')
+        network = [
+            Convolutional(240 * 240, 175*175, 3),
+            Tanh(),
+            Convolutional(175*175, 15000, 3),
+            Tanh()
+        ]
 
 # train
 print('Training starts now!')
 train(network, mse, mse_prime, x_train, y_train, epochs=100, learning_rate=0.1)
+print('Training Complete!')
+
+# For good reason
+save_matrix()
 
 # test
-for x, y in zip(true_x_test_data, true_y_test_data):
-    output = predict(network, x)
-    print('pred:', np.argmax(output), '\ttrue:', np.argmax(y))
+print ('Shuffling Training List')
+lst = getRandomizedTestingDataset()
+x_test = []
+y_test = []
+i = 0
+for img in lst:
+    i += 1
+    x_train.append(load_resize_format_image(img[0]))
+    y_train.append(load_annotations_answer(img[1]))
+    print('Loading img %d/%d' % (i, len(lst)))
