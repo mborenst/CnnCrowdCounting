@@ -1,3 +1,5 @@
+# Basic Neural Network Test
+
 from DenseLayer import Dense
 from Activations import Tanh
 from Losses import mse, mse_prime
