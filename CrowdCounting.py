@@ -7,11 +7,14 @@ import sys
 import pickle
 
 from ConvolutionalLayer import Convolutional
-from Activations import Tanh
-from Losses import mse, mse_prime
+from DenseLayer import Dense
+from ReshapeLayer import Reshape
+from Activations import Sigmoid
+from Losses import binary_cross_entropy, binary_cross_entropy_prime
 from network import train, predict
 
 loadFromMemory = False
+imageSize = 240
 
 projDir = 'C:\\Users\mason\OneDrive\Documents\CNN Crowd Counting'
 datasetDir = 'C:\\Users/mason/OneDrive/Documents/UCF-QNRF_ECCV18'
@@ -20,8 +23,8 @@ datasetDir = 'C:\\Users/mason/OneDrive/Documents/UCF-QNRF_ECCV18'
 def load_resize_format_image(input):
     label = datasetDir + '/Train/' + input
     image = Image.open(label)
-    image = image.resize((240, 240))
-    numpydata = np.asarray(image) / 255
+    image = image.resize((imageSize, imageSize))
+    numpydata = np.asarray(image)
     return numpydata
 
 
@@ -38,8 +41,11 @@ def save_matrix():
         layer1 = network[0]
         pickle.dump(layer1, outp, pickle.HIGHEST_PROTOCOL)
     
-        layer2 = network[2]
+        layer2 = network[3]
         pickle.dump(layer2, outp, pickle.HIGHEST_PROTOCOL)
+        
+        layer3 = network[5]
+        pickle.dump(layer3, outp, pickle.HIGHEST_PROTOCOL)
 
 def getRandomTraining():
     i = random.randint(1, 1201)
@@ -58,7 +64,7 @@ def getRandomTraining():
 
 def getRandomizedTrainingDataset():
     lst = []
-    for i in range(1, 10): #1201
+    for i in range(1, 50): #1201
         label = 'img_'
         if (i < 10):
             label = label + "000" + str(i)
@@ -75,7 +81,7 @@ def getRandomizedTrainingDataset():
     return lst
 
 def getRandomTestImage():
-    i = random.randint(1, 334)
+    i = random.randint(1, 16) # 334
     label = 'img_'
     if (i < 10):
         label = label + "000" + str(i)
@@ -111,14 +117,24 @@ def getRandomizedTestingDataset():
 # load Data
 print ('Shuffling Training List')
 lst = getRandomizedTrainingDataset()
-x_train = []
-y_train = []
+x = []
+y = []
 i = 0
 for img in lst:
+    thing = np.array(load_resize_format_image(img[0]))
+    x.append(thing.reshape(3, imageSize, imageSize))
+    y.append(np.array(load_annotations_answer(img[1])))
     i+=1
-    x_train.append(load_resize_format_image(img[0]))
-    y_train.append(load_annotations_answer(img[1]))
     print('Loading img %d/%d' % (i, len(lst)))
+
+
+print(x[0].shape)
+x_train = np.stack(x, axis = 0)
+print(x_train.shape)
+#x_train = x_train.reshape(len(lst), 1, imageSize, imageSize)
+y_train = np.stack(y, axis = 0)
+print(x_train.shape)
+#y_train = np.reshape(len(lst), 15000, 1)
 
 # neural network
 network = []
@@ -128,25 +144,34 @@ with open('layers.pkl', 'rb') as inp:
         print('Loading from memory...')
         layer1 = pickle.load(inp)
         layer2 = pickle.load(inp)
+        layer3 = pickle.load(inp)
         
         network = [
             layer1,
-            Tanh(),
+            Sigmoid(),
+            Reshape((5, 26, 26), (5*26*26, 1)),
             layer2,
-            Tanh()
+            Sigmoid(),
+            layer3,
+            Sigmoid()
         ]
     else:
         print('Generating New Matricies')
         network = [
-            Convolutional(240 * 240, 175*175, 3),
-            Tanh(),
-            Convolutional(175*175, 15000, 3),
-            Tanh()
+            Convolutional((1, imageSize, imageSize), 3, 5),
+            Sigmoid(),
+            Reshape((5, imageSize-2, imageSize-2), (5*(imageSize-2)*(imageSize-2), 1)),
+            Dense(5*(imageSize-2)*(imageSize-2), 175*175),
+            Sigmoid(),
+            Dense(175*175, 15000),
+            Sigmoid()
         ]
 
 # train
 print('Training starts now!')
-train(network, mse, mse_prime, x_train, y_train, epochs=100, learning_rate=0.1)
+
+train(network, binary_cross_entropy, binary_cross_entropy_prime, x_train, y_train, epochs=50, learning_rate=0.1)
+
 print('Training Complete!')
 
 # For good reason
