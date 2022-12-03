@@ -17,7 +17,7 @@ loadFromMemory = False
 imageSize = 240
 
 projDir = 'C:\\Users\mason\OneDrive\Documents\CNN Crowd Counting'
-datasetDir = 'C:\\Users/mason/OneDrive/Documents/UCF-QNRF_ECCV18'
+datasetDir = 'UCF-QNRF_ECCV18'
 
 # Loading Methods
 def load_resize_format_image(input):
@@ -32,8 +32,7 @@ def load_annotations_answer(input):
     label = datasetDir + '/Train/' + input
     loadFile = sio.loadmat(label)
     population = len(loadFile['annPoints'])
-    answer = np.zeros(15000)
-    answer[population] = 1
+    answer = [population / 15000]
     return answer
 
 def save_matrix():
@@ -77,7 +76,7 @@ def getRandomizedTrainingDataset():
         image = label + ".jpg"
         annotation = label + "_ann.mat"
         lst.append((image, annotation))
-    random.shuffle(lst)
+    #random.shuffle(lst)
     return lst
 
 def getRandomTestImage():
@@ -125,16 +124,7 @@ for img in lst:
     x.append(thing.reshape(3, imageSize, imageSize))
     y.append(np.array(load_annotations_answer(img[1])))
     i+=1
-    print('Loading img %d/%d' % (i, len(lst)))
-
-
-print(x[0].shape)
-x_train = np.stack(x, axis = 0)
-print(x_train.shape)
-#x_train = x_train.reshape(len(lst), 1, imageSize, imageSize)
-y_train = np.stack(y, axis = 0)
-print(x_train.shape)
-#y_train = np.reshape(len(lst), 15000, 1)
+    print('Loading img %d/%d (%s)' % (i, len(lst), img[0]))
 
 # neural network
 network = []
@@ -149,7 +139,7 @@ with open('layers.pkl', 'rb') as inp:
         network = [
             layer1,
             Sigmoid(),
-            Reshape((5, 26, 26), (5*26*26, 1)),
+            Reshape((5, imageSize-2, imageSize-2), (5*(imageSize-2)*(imageSize-2), 1)),
             layer2,
             Sigmoid(),
             layer3,
@@ -161,16 +151,16 @@ with open('layers.pkl', 'rb') as inp:
             Convolutional((1, imageSize, imageSize), 3, 5),
             Sigmoid(),
             Reshape((5, imageSize-2, imageSize-2), (5*(imageSize-2)*(imageSize-2), 1)),
-            Dense(5*(imageSize-2)*(imageSize-2), 175*175),
+            Dense(5*(imageSize-2)*(imageSize-2), 100),
             Sigmoid(),
-            Dense(175*175, 15000),
+            Dense(100, 1),
             Sigmoid()
         ]
 
 # train
 print('Training starts now!')
 
-train(network, binary_cross_entropy, binary_cross_entropy_prime, x_train, y_train, epochs=50, learning_rate=0.1)
+train(network, binary_cross_entropy, binary_cross_entropy_prime, x, y, epochs=50, learning_rate=0.1)
 
 print('Training Complete!')
 
